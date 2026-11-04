@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Cliente - TurnoSport</title>
+    <link rel="stylesheet" href="css/reservar-turno.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Overlay para cerrar sidebar -->
+    <div id="sidebarOverlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>TurnoSport</h2>
+            <button id="btnToggle" class="btn-toggle" onclick="closeSidebar()">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Perfil Usuario -->
+        <div class="user-profile">
+            <div class="user-avatar">
+                <i class="fa fa-user"></i>
+            </div>
+            <div class="user-info">
+                <h4 id="userDisplayName">Usuario</h4>
+                <p id="userEmail">email@ejemplo.com</p>
+            </div>
+        </div>
+
+        <!-- Menú -->
+        <nav class="menu">
+            <ul>
+                <li class="active" data-entity="mis-reservas">
+                    <i class="fa fa-calendar-check"></i>
+                    <span>Mis Reservas</span>
+                </li>
+                <li data-entity="nueva-reserva">
+                    <i class="fa fa-plus-circle"></i>
+                    <span>Nueva Reserva</span>
+                </li>
+                <li data-entity="canchas">
+                    <i class="fa fa-futbol"></i>
+                    <span>Canchas</span>
+                </li>
+                <li data-entity="servicios">
+                    <i class="fa fa-concierge-bell"></i>
+                    <span>Servicios</span>
+                </li>
+                <li data-entity="precios">
+                    <i class="fa fa-tags"></i>
+                    <span>Precios</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Botón Cerrar Sesión -->
+        <div class="sidebar-footer">
+            <button class="btn danger full-width" onclick="cerrarSesion()">
+                <i class="fa fa-sign-out-alt"></i>
+                <span>Cerrar Sesión</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="main-content">
+        <!-- Header -->
+        <header class="top-bar">
+            <div class="top-bar-content">
+                <button class="menu-toggle" onclick="openSidebar()">
+                    <i class="fa fa-bars"></i>
+                </button>
+                
+                <h1 id="mainTitle">Mis Reservas</h1>
+                
+                <div class="user-actions">
+                    <span id="userName">Usuario</span>
+                    <button class="btn primary" onclick="cargarSeccion('nueva-reserva')">
+                        <i class="fa fa-plus"></i>
+                        <span>Nueva Reserva</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main id="contentArea" class="content-area">
+            <div class="muted">Cargando...</div>
+        </main>
+    </div>
+
+    <div id="pagoModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Procesar Pago</h3>
+                <button onclick="closeModal('pagoModal')" class="btn-close">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="pagoModalContent">
+                <!-- Contenido del pago se carga dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="js/reservar.js"></script>
+</body>
+</html>
