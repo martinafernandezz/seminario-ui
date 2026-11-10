@@ -1,6 +1,5 @@
 const API_BASE = 'http://localhost:3000';
 const API = {
-  'localidades': API_BASE + '/api/localidades',
   'tipo-canchas': API_BASE + '/api/tipo-canchas',
   'canchas': API_BASE + '/api/canchas',
   'servicios': API_BASE + '/api/servicios',
@@ -25,7 +24,6 @@ let currentUser = null;
 let currentSection = 'mis-reservas';
 let dataCache = {};
 let reservaActual = {
-  localidad: null,
   deporte: null,
   fecha: null,
   horario: null,
@@ -66,7 +64,7 @@ function cargarUsuario() {
     if (userData) {
       currentUser = JSON.parse(userData);
       document.getElementById('userName').textContent = `${currentUser.nombre} ${currentUser.apellido || ''}`;
-      document.getElementById('userEmail').textContent = currentUser.email || currentUser.username || '';
+      document.getElementById('userEmail').textContent = currentUser.mail || currentUser.username || '';
       document.getElementById('userDisplayName').textContent = `${currentUser.nombre} ${currentUser.apellido || ''}`;
     } else {
       console.log('No se encontró usuario en localStorage/sessionStorage');
@@ -103,6 +101,7 @@ function setupEventListeners() {
 function getTitleFromSection(section) {
   const titles = {
     'mis-reservas': 'Mis Reservas',
+    'historial': 'Historial',
     'nueva-reserva': 'Nueva Reserva',
     'canchas': 'Canchas Disponibles',
     'servicios': 'Servicios',
@@ -120,6 +119,9 @@ async function cargarSeccion(seccion) {
     switch(seccion) {
       case 'mis-reservas':
         await cargarMisReservas();
+        break;
+      case 'historial':
+        await cargarHistorial();
         break;
       case 'nueva-reserva':
         await cargarNuevaReserva();
@@ -243,14 +245,12 @@ async function cargarMisReservas() {
 // NUEVA RESERVA - FLUJO PASO A PASO
 async function cargarNuevaReserva() {
   await Promise.all([
-    fetchIfNeeded('localidades'),
     fetchIfNeeded('tipo-canchas'),
     fetchIfNeeded('servicios')
   ]);
 
   // Resetear estado de reserva
   reservaActual = {
-    localidad: null,
     deporte: null,
     fecha: null,
     horario: null,
@@ -268,70 +268,24 @@ function mostrarPasoActual() {
   
   switch(currentStep) {
     case 1:
-      mostrarPasoLocalidad();
-      break;
-    case 2:
       mostrarPasoDeporte();
       break;
-    case 3:
+    case 2:
       mostrarPasoFecha();
       break;
-    case 4:
+    case 3:
       mostrarPasoCanchas();
       break;
-    case 5:
+    case 4:
       mostrarPasoHorario();
       break;
-    case 6:
+    case 5:
       mostrarPasoServicios();
       break;
-    case 7:
+    case 6:
       mostrarResumenFinal();
       break;
   }
-}
-
-function mostrarPasoLocalidad() {
-  const localidades = dataCache['localidades'] || [];
-  
-  const html = `
-    <div class="reserva-flow">
-      <div class="step">
-        <div class="step-header">
-          <div class="step-number">1</div>
-          <h3 class="step-title">Paso 1: Seleccioná la Localidad</h3>
-        </div>
-        <div class="step-content">
-          <p class="muted">Elegí en qué localidad querés jugar</p>
-          <div class="options-grid" id="localidadesGrid">
-            ${localidades.map((localidad, index) => `
-              <div class="option-card ${reservaActual.localidad?.id_localidad === localidad.id_localidad ? 'selected' : ''}" 
-                   data-index="${index}">
-                <div class="option-icon">
-                  <i class="fa fa-map-marker-alt"></i>
-                </div>
-                <div class="option-title">${escapeHtml(localidad.nombre)}</div>
-              </div>
-            `).join('')}
-          </div>
-          <div class="navigation-buttons">
-            <button class="btn" onclick="cargarSeccion('mis-reservas')">Cancelar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('contentArea').innerHTML = html;
-  
-  // Agregar event listeners después de insertar el HTML
-  setTimeout(() => {
-    document.querySelectorAll('#localidadesGrid .option-card').forEach((card, index) => {
-      card.addEventListener('click', () => {
-        seleccionarLocalidad(localidades[index]);
-      });
-    });
-  }, 0);
 }
 
 function mostrarPasoDeporte() {
@@ -341,11 +295,10 @@ function mostrarPasoDeporte() {
     <div class="reserva-flow">
       <div class="step">
         <div class="step-header">
-          <div class="step-number">2</div>
-          <h3 class="step-title">Paso 2: Seleccioná el Deporte</h3>
+          <div class="step-number">1</div>
+          <h3 class="step-title">Paso 1: Seleccioná el Deporte</h3>
         </div>
         <div class="step-content">
-          <p class="muted"><strong>Localidad:</strong> ${escapeHtml(reservaActual.localidad?.nombre || '')}</p>
           <p class="muted">Elegí qué deporte querés practicar</p>
           <div class="options-grid" id="deportesGrid">
             ${tipos.map((tipo, index) => `
@@ -360,7 +313,7 @@ function mostrarPasoDeporte() {
             `).join('')}
           </div>
           <div class="navigation-buttons">
-            <button class="btn" onclick="anteriorPaso()"><i class="fa fa-arrow-left"></i> Anterior</button>
+            <button class="btn" onclick="cargarSeccion('mis-reservas')">Cancelar</button>
           </div>
         </div>
       </div>
@@ -389,11 +342,10 @@ function mostrarPasoFecha() {
     <div class="reserva-flow">
       <div class="step">
         <div class="step-header">
-          <div class="step-number">3</div>
-          <h3 class="step-title">Paso 3: Seleccioná la Fecha</h3>
+          <div class="step-number">2</div>
+          <h3 class="step-title">Paso 2: Seleccioná la Fecha</h3>
         </div>
         <div class="step-content">
-          <p class="muted"><strong>Localidad:</strong> ${escapeHtml(reservaActual.localidad?.nombre || '')}</p>
           <p class="muted"><strong>Deporte:</strong> ${escapeHtml(reservaActual.deporte?.deporte || reservaActual.deporte?.nombre || '')}</p>
           <br>
           <p class="muted">Elegí para qué día querés reservar</p>
@@ -428,11 +380,10 @@ async function mostrarPasoCanchas() {
     <div class="reserva-flow">
       <div class="step">
         <div class="step-header">
-          <div class="step-number">4</div>
-          <h3 class="step-title">Paso 4: Seleccioná la Cancha</h3>
+          <div class="step-number">3</div>
+          <h3 class="step-title">Paso 3: Seleccioná la Cancha</h3>
         </div>
         <div class="step-content">
-          <p class="muted"><strong>Localidad:</strong> ${escapeHtml(reservaActual.localidad?.nombre || '')}</p>
           <p class="muted"><strong>Deporte:</strong> ${escapeHtml(reservaActual.deporte?.deporte || reservaActual.deporte?.nombre || '')}</p>
           <p class="muted"><strong>Fecha:</strong> ${reservaActual.fecha || ''}</p>
           <br>
@@ -452,10 +403,9 @@ async function mostrarPasoCanchas() {
 async function cargarCanchasParaSeleccionar() {
   try {
     // Validar que tengamos todos los datos necesarios
-    if (!reservaActual.fecha || !reservaActual.localidad || !reservaActual.deporte) {
+    if (!reservaActual.fecha || !reservaActual.deporte) {
       console.error('❌ Faltan datos:', {
         fecha: reservaActual.fecha,
-        localidad: reservaActual.localidad,
         deporte: reservaActual.deporte
       });
       document.getElementById('canchasContainer').innerHTML = `
@@ -469,8 +419,7 @@ async function cargarCanchasParaSeleccionar() {
     // Preparar el body con nombres (no IDs) según el backend espera
     const body = {
       fecha: reservaActual.fecha,
-      deporte: reservaActual.deporte.deporte || reservaActual.deporte.nombre,
-      localidad: reservaActual.localidad.nombre
+      deporte: reservaActual.deporte.deporte || reservaActual.deporte.nombre
     };
     
     console.log('🔍 Buscando canchas con:', body);
@@ -511,8 +460,8 @@ async function cargarCanchasParaSeleccionar() {
             <div class="cancha-card ${reservaActual.cancha?.id_cancha === cancha.id_cancha ? 'selected' : ''}"
                  data-index="${index}">
               <h4>${escapeHtml(cancha.nombre)}</h4>
-              <p class="muted">${escapeHtml(cancha.localidad_nombre)} • ${escapeHtml(cancha.tipo_nombre)}</p>
-              <p><strong>Horario:</strong> ${cancha.hora_apertura?.substring(0,5) || '08:00'} - ${cancha.hora_cierre?.substring(0,5) || '22:00'}</p>
+              <p class="muted">${escapeHtml(cancha.tipo_nombre)}</p>
+              <p><strong>Horario:</strong> 08:00 - 22:00</p>
               <p class="badge">${horariosDisponibles} horarios disponibles</p>
             </div>
           `;
@@ -545,11 +494,10 @@ async function mostrarPasoHorario() {
     <div class="reserva-flow">
       <div class="step">
         <div class="step-header">
-          <div class="step-number">5</div>
-          <h3 class="step-title">Paso 5: Seleccioná el Horario</h3>
+          <div class="step-number">4</div>
+          <h3 class="step-title">Paso 4: Seleccioná el Horario</h3>
         </div>
         <div class="step-content">
-          <p class="muted"><strong>Localidad:</strong> ${escapeHtml(reservaActual.localidad?.nombre || '')}</p>
           <p class="muted"><strong>Deporte:</strong> ${escapeHtml(reservaActual.deporte?.deporte || reservaActual.deporte?.nombre || '')}</p>
           <p class="muted"><strong>Fecha:</strong> ${reservaActual.fecha || ''}</p>
           <p class="muted"><strong>Cancha:</strong> ${escapeHtml(reservaActual.cancha?.nombre || '')}</p>
@@ -636,7 +584,7 @@ function mostrarPasoServicios() {
     <div class="reserva-flow">
       <div class="step">
         <div class="step-header">
-          <div class="step-number">6</div>
+          <div class="step-number">5</div>
           <h3 class="step-title">Servicios Adicionales</h3>
         </div>
         <div class="step-content">
@@ -676,16 +624,12 @@ async function mostrarResumenFinal() {
     <div class="reserva-flow">
       <div class="step">
         <div class="step-header">
-          <div class="step-number">7</div>
+          <div class="step-number">6</div>
           <h3 class="step-title">Confirmá tu Reserva</h3>
         </div>
         <div class="step-content">
           <div class="resumen-reserva">
             <h4>Detalles de la Reserva</h4>
-            <div class="resumen-item">
-              <span>Localidad:</span>
-              <span>${reservaActual.localidad.nombre}</span>
-            </div>
             <div class="resumen-item">
               <span>Deporte:</span>
               <span>${reservaActual.deporte.nombre}</span>
@@ -738,17 +682,6 @@ async function mostrarResumenFinal() {
 }
 
 // FUNCIONES DE SELECCIÓN
-function seleccionarLocalidad(localidad) {
-  // Normalizar el objeto para que siempre tenga id_localidad
-  reservaActual.localidad = {
-    id_localidad: localidad.id || localidad.id_localidad,
-    id: localidad.id || localidad.id_localidad,
-    nombre: localidad.nombre
-  };
-  console.log('✅ Localidad seleccionada:', reservaActual.localidad);
-  siguientePaso();
-}
-
 function seleccionarDeporte(deporte) {
   reservaActual.deporte = deporte;
   console.log('✅ Deporte seleccionado:', deporte);
@@ -790,7 +723,7 @@ function toggleServicio(servicio) {
 
 // NAVEGACIÓN
 function siguientePaso() {
-  if (currentStep < 7) {
+  if (currentStep < 6) {
     currentStep++;
     mostrarPasoActual();
   }
@@ -871,7 +804,6 @@ async function modificarReserva(id_reserva) {
         
         // Cargar datos necesarios para la modificación
         await Promise.all([
-            fetchIfNeeded('localidades'),
             fetchIfNeeded('tipo-canchas'),
             fetchIfNeeded('servicios')
         ]);
@@ -879,7 +811,6 @@ async function modificarReserva(id_reserva) {
         // Configurar reserva actual con los datos existentes
         reservaActual = {
             id_reserva: reserva.id_reserva,
-            localidad: await obtenerLocalidadDeCancha(reserva.id_cancha),
             deporte: await obtenerDeporteDeCancha(reserva.id_cancha),
             fecha: reserva.fecha,
             horario: reserva.hora_inicio,
@@ -904,26 +835,6 @@ async function modificarReserva(id_reserva) {
         console.error('Error preparando modificación:', error);
         showToast('Error al cargar datos para modificación: ' + error.message);
     }
-}
-
-// Función auxiliar para obtener localidad de una cancha
-async function obtenerLocalidadDeCancha(id_cancha) {
-    try {
-        const response = await fetch(`${API['canchas']}/${id_cancha}`, {
-            headers: getAuthHeaders()
-        });
-        const result = await response.json();
-        
-        if (result.success) {
-            const cancha = result.data;
-            // Buscar la localidad en el cache
-            const localidades = dataCache['localidades'] || [];
-            return localidades.find(l => l.id_localidad === cancha.id_localidad) || null;
-        }
-    } catch (error) {
-        console.error('Error obteniendo localidad:', error);
-    }
-    return null;
 }
 
 // Función auxiliar para obtener deporte de una cancha
@@ -1157,7 +1068,7 @@ async function procesarPago(event) {
                             </div>
                             <h3>¡Pago Exitoso!</h3>
                             <p class="muted">Su pago ha sido procesado correctamente.</p>
-                            <p class="muted">ID de transacción: ${estadoResult.data.transaccion_id}</p>
+                            <p class="muted">Pago N° ${estadoResult.data.id_pago}</p>
                             <div class="modal-actions" style="margin-top: 30px;">
                                 <button class="btn success" onclick="finalizarPagoExitoso()">
                                     Aceptar
@@ -1434,7 +1345,7 @@ async function cargarCanchas() {
       ${canchas.map(cancha => `
         <div class="cancha-card ${cancha.estado === 'disponible' ? 'disponible' : 'ocupada'}">
           <h4>${escapeHtml(cancha.nombre)}</h4>
-          <p class="muted">${cancha.localidad_nombre || 'Sin localidad'} • ${cancha.tipo_nombre || 'Sin tipo'}</p>
+          <p class="muted">${cancha.tipo_nombre || 'Sin tipo'}</p>
           <p>Estado: <span class="status-badge status-${cancha.estado || 'desconocido'}">${cancha.estado || 'desconocido'}</span></p>
         </div>
       `).join('')}
@@ -1497,7 +1408,7 @@ async function cargarPrecios() {
           return `
             <tr>
               <td>${cancha ? escapeHtml(cancha.nombre) : `Cancha ${precio.id_cancha}`}</td>
-              <td>$${escapeHtml(precio.valor_por_hora)}</td>
+              <td>$${escapeHtml(precio.precio_por_hora)}</td>
               <td>${precio.fecha_vigencia ? formatearFecha(precio.fecha_vigencia) : 'Vigente'}</td>
             </tr>
           `;
@@ -1507,4 +1418,136 @@ async function cargarPrecios() {
   `;
 
   document.getElementById('contentArea').innerHTML = html;
+}
+
+// historial y reseñas
+
+let historialCache = [];
+let resenaPuntaje = 0;
+
+function estrellasHTML(n) {
+  const v = Math.max(0, Math.min(5, Number(n) || 0));
+  return `<span style="color:#f5a623;letter-spacing:1px">${'★'.repeat(v)}<span style="color:#ccc">${'★'.repeat(5 - v)}</span></span>`;
+}
+
+// ya se jugó si pasó la hora de fin
+function reservaCumplida(reserva) {
+  const fecha = String(reserva.fecha).slice(0, 10);
+  return new Date(`${fecha}T${reserva.hora_fin}`).getTime() <= Date.now();
+}
+
+async function cargarHistorial() {
+  if (!currentUser) {
+    document.getElementById('contentArea').innerHTML = '<div class="table-empty">Debe iniciar sesión</div>';
+    return;
+  }
+
+  const response = await fetch(API['reservas'], { headers: getAuthHeaders() });
+  const result = await response.json();
+  if (!result.success) throw new Error(result.message);
+
+  historialCache = (result.data || [])
+    .filter(r => r.id_usuario === currentUser.id_usuario && reservaCumplida(r))
+    .sort((a, b) => `${b.fecha}${b.hora_inicio}`.localeCompare(`${a.fecha}${a.hora_inicio}`));
+
+  if (historialCache.length === 0) {
+    document.getElementById('contentArea').innerHTML =
+      '<div class="table-empty">Todavía no tenés reservas cumplidas. Cuando juegues, podrás reseñarlas desde acá.</div>';
+    return;
+  }
+
+  document.getElementById('contentArea').innerHTML = `
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Cancha</th>
+          <th>Fecha</th>
+          <th>Horario</th>
+          <th>Total</th>
+          <th>Tu reseña</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${historialCache.map(r => `
+          <tr>
+            <td data-label="Cancha">${escapeHtml(r.cancha_nombre || `Cancha ${r.id_cancha}`)}</td>
+            <td data-label="Fecha">${escapeHtml(formatearFecha(r.fecha))}</td>
+            <td data-label="Horario">${escapeHtml(r.hora_inicio)} - ${escapeHtml(r.hora_fin)}</td>
+            <td data-label="Total">$${escapeHtml(r.precio_total)}</td>
+            <td data-label="Tu reseña">
+              ${r.puntaje
+                ? `${estrellasHTML(r.puntaje)}${r.resena ? `<br><small class="muted">${escapeHtml(r.resena)}</small>` : ''}`
+                : '<span class="muted">Sin reseñar</span>'}
+            </td>
+            <td data-label="Acciones" class="actions">
+              <button class="btn ${r.puntaje ? '' : 'primary'} small" onclick="abrirResena(${r.id_reserva})">
+                <i class="fa fa-star"></i> ${r.puntaje ? 'Editar reseña' : 'Reseñar'}
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function abrirResena(id_reserva) {
+  const reserva = historialCache.find(r => r.id_reserva === id_reserva);
+  if (!reserva) return;
+
+  resenaPuntaje = reserva.puntaje || 0;
+  document.getElementById('resenaModalContent').innerHTML = `
+    <p class="muted">${escapeHtml(reserva.cancha_nombre || '')} · ${escapeHtml(formatearFecha(reserva.fecha))} · ${escapeHtml(reserva.hora_inicio)} - ${escapeHtml(reserva.hora_fin)}</p>
+    <label>Puntaje *</label>
+    <div id="resenaEstrellas" style="font-size:32px;cursor:pointer;user-select:none"></div>
+    <label for="resenaTexto">Comentario (opcional)</label>
+    <textarea id="resenaTexto" rows="4" maxlength="500" placeholder="Contanos cómo fue tu experiencia en Olimpo">${escapeHtml(reserva.resena || '')}</textarea>
+    <div class="modal-actions" style="margin-top:20px">
+      <button class="btn" onclick="closeModal('resenaModal')">Cancelar</button>
+      <button class="btn success" onclick="guardarResena(${id_reserva})">Guardar reseña</button>
+    </div>
+  `;
+  pintarEstrellasResena();
+  openModal('resenaModal');
+}
+
+function pintarEstrellasResena() {
+  const cont = document.getElementById('resenaEstrellas');
+  cont.innerHTML = [1, 2, 3, 4, 5].map(n =>
+    `<span data-n="${n}" style="color:${n <= resenaPuntaje ? '#f5a623' : '#ccc'}">★</span>`
+  ).join('');
+  cont.querySelectorAll('span').forEach(el => {
+    el.addEventListener('click', () => {
+      resenaPuntaje = Number(el.dataset.n);
+      pintarEstrellasResena();
+    });
+  });
+}
+
+async function guardarResena(id_reserva) {
+  if (!resenaPuntaje) {
+    showToast('Elegí un puntaje de 1 a 5 estrellas');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API['reservas']}/${id_reserva}/resena`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        puntaje: resenaPuntaje,
+        resena: document.getElementById('resenaTexto').value.trim()
+      })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.message || `HTTP ${response.status}`);
+
+    closeModal('resenaModal');
+    showToast('¡Gracias por tu reseña!');
+    await cargarHistorial();
+  } catch (error) {
+    console.error('Error guardando reseña:', error);
+    showToast('No se pudo guardar la reseña: ' + error.message);
+  }
 }
