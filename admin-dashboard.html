@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Panel Administrador - TurnoSport</title>
+  <title>Panel Administrador - Olimpo</title>
   <link rel="stylesheet" href="css/admin-dashboard.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
 
@@ -11,19 +11,20 @@
 <body>
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <h2>TurnoSport</h2>
+      <h2>Olimpo</h2>
       <button id="btnToggle" class="btn-toggle"><i class="fa fa-times"></i></button>
     </div>
 
     <nav class="menu">
       <ul>
-        <li data-entity="localidades" class="active"><i class="fa fa-map-marker-alt"></i> Localidades</li>
-        <li data-entity="tipo-canchas"><i class="fa fa-layer-group"></i> Tipos de Cancha</li>
+        <li data-entity="tipo-canchas" class="active"><i class="fa fa-layer-group"></i> Tipos de Cancha</li>
         <li data-entity="canchas"><i class="fa fa-futbol"></i> Canchas</li>
         <li data-entity="precios"><i class="fa fa-tag"></i> Precios</li>
         <li data-entity="servicios"><i class="fa fa-concierge-bell"></i> Servicios</li>
         <li data-entity="usuarios"><i class="fa fa-users"></i> Usuarios</li>
         <li data-entity="reservas"><i class="fa fa-calendar-check"></i> Reservas</li>
+        <li data-entity="turnos-fijos"><i class="fa fa-repeat"></i> Turnos Fijos</li>
+        <li data-entity="resenas"><i class="fa fa-star"></i> Reseñas</li>
         <!-- NUEVOS ITEMS AGREGADOS -->
         <li data-entity="canchas-por-tipo"><i class="fa fa-filter"></i> Canchas por Tipo</li>
         <li data-entity="reservas-por-fecha"><i class="fa fa-calendar-day"></i> Reservas por Fecha</li>
@@ -46,7 +47,7 @@
     <header class="topbar">
       <div class="topbar-content">
         <button class="menu-toggle" id="menuToggle"><i class="fa fa-bars"></i></button>
-        <h1 id="mainTitle">Localidades</h1>
+        <h1 id="mainTitle">Tipos de Cancha</h1>
         <div class="right">
           <input id="searchInput" placeholder="Buscar..." />
           <button id="btnExport" class="btn small" title="Exportar (simulado)">Export</button>

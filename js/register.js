@@ -17,9 +17,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const passwordInput = document.getElementById('password');
     const confirmPasswordInput = document.getElementById('confirmPassword');
     
-    // Cargar localidades al iniciar
-    cargarLocalidades();
-    
     // Validar coincidencia de contraseñas en tiempo real
     confirmPasswordInput.addEventListener('input', validarCoincidenciaPasswords);
     passwordInput.addEventListener('input', validarCoincidenciaPasswords);
@@ -39,19 +36,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             const formData = {
-                dni: document.getElementById('dni').value.trim(),
+                dni: parseInt(document.getElementById('dni').value.trim(), 10),
                 nombre: document.getElementById('nombre').value.trim(),
                 apellido: document.getElementById('apellido').value.trim(),
-                email: document.getElementById('email').value.trim(),
+                mail: document.getElementById('mail').value.trim(),
                 username: document.getElementById('username').value.trim(),
                 password: passwordInput.value,
-                rol: 'cliente',
-                id_localidad: parseInt(document.getElementById('localidad').value)
+                rol: 'cliente'
             };
             
             console.log('Enviando datos de registro:', { ...formData, password: '***' });
             
-            const response = await fetch(`${API_URL}/usuarios`, {
+            const response = await fetch(`${API_URL}/auth/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -93,14 +89,13 @@ function validarFormulario() {
     const nombre = document.getElementById('nombre').value.trim();
     const apellido = document.getElementById('apellido').value.trim();
     const dni = document.getElementById('dni').value.trim();
-    const email = document.getElementById('email').value.trim();
+    const email = document.getElementById('mail').value.trim();
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
-    const localidad = document.getElementById('localidad').value;
     
     // Validaciones básicas
-    if (!nombre || !apellido || !dni || !email || !username || !password || !localidad) {
+    if (!nombre || !apellido || !dni || !email || !username || !password) {
         mostrarMensaje('Por favor complete todos los campos obligatorios', 'error');
         return false;
     }
@@ -145,83 +140,4 @@ function validarCoincidenciaPasswords() {
 function validarEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
-}
-
-async function cargarLocalidades() {
-    try {
-        console.log('- Cargando localidades desde:', `${API_URL}/localidades`);
-        
-        const response = await fetch(`${API_URL}/localidades`);
-        console.log('- Respuesta HTTP:', response.status, response.statusText);
-        
-        const data = await response.json();
-        console.log('- Datos recibidos de localidades:', data);
-    
-        const localidadSelect = document.getElementById('localidad');
-        localidadSelect.innerHTML = '<option value="">Seleccione una localidad</option>';
-        
-       
-        let localidadesArray = data;
-        
-        if (data && Array.isArray(data.data)) {
-            localidadesArray = data.data;
-        } else if (data && Array.isArray(data)) {
-            localidadesArray = data;
-        } else {
-            console.error(' Formato de respuesta inesperado:', data);
-            mostrarMensaje('Error en el formato de localidades', 'error');
-            return;
-        }
-        
-        console.log(' Localidades a mostrar:', localidadesArray);
-        
-        if (localidadesArray.length === 0) {
-            mostrarMensaje('No hay localidades disponibles. Contacte al administrador.', 'error');
-            return;
-        }
-        
-        localidadesArray.forEach(localidad => {
-            const option = document.createElement('option');
-            option.value = localidad.id || localidad.id_localidad;
-            option.textContent = localidad.nombre;
-            console.log(`📍 Agregando localidad: ${localidad.nombre} (ID: ${localidad.id || localidad.id_localidad})`);
-            localidadSelect.appendChild(option);
-        });
-        
-        console.log('- Localidades cargadas correctamente');
-        
-    } catch (error) {
-        console.error('- Error cargando localidades:', error);
-        mostrarMensaje('Error cargando localidades. Verifique la conexión con el servidor.', 'error');
-        
-    
-        const localidadSelect = document.getElementById('localidad');
-        const opcionesEmergencia = [
-            { id: 1, nombre: 'Rosario' },
-            { id: 2, nombre: 'Santa Fe' },
-            { id: 3, nombre: 'Buenos Aires' }
-        ];
-        
-        opcionesEmergencia.forEach(localidad => {
-            const option = document.createElement('option');
-            option.value = localidad.id;
-            option.textContent = localidad.nombre;
-            localidadSelect.appendChild(option);
-        });
-    }
-}
-
-function mostrarMensaje(texto, tipo) {
-    const messageDiv = document.getElementById('message');
-    if (messageDiv) {
-        messageDiv.textContent = texto;
-        messageDiv.className = `message ${tipo}`;
-        messageDiv.style.display = 'block';
-        
-        if (tipo !== 'success') {
-            setTimeout(() => {
-                messageDiv.style.display = 'none';
-            }, 5000);
-        }
-    }
 }

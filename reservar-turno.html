@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Cliente - TurnoSport</title>
+    <title>Panel Cliente - Olimpo</title>
     <link rel="stylesheet" href="css/reservar-turno.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -14,7 +14,7 @@
     <!-- Sidebar -->
     <div id="sidebar" class="sidebar">
         <div class="sidebar-header">
-            <h2>TurnoSport</h2>
+            <h2>Olimpo</h2>
             <button id="btnToggle" class="btn-toggle" onclick="closeSidebar()">
                 <i class="fa fa-times"></i>
             </button>
@@ -37,6 +37,10 @@
                 <li class="active" data-entity="mis-reservas">
                     <i class="fa fa-calendar-check"></i>
                     <span>Mis Reservas</span>
+                </li>
+                <li data-entity="historial">
+                    <i class="fa fa-clock-rotate-left"></i>
+                    <span>Historial</span>
                 </li>
                 <li data-entity="nueva-reserva">
                     <i class="fa fa-plus-circle"></i>
@@ -103,6 +107,18 @@
             <div class="modal-body" id="pagoModalContent">
                 <!-- Contenido del pago se carga dinámicamente -->
             </div>
+        </div>
+    </div>
+
+    <div id="resenaModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Reseña de la reserva</h3>
+                <button onclick="closeModal('resenaModal')" class="btn-close">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="resenaModalContent"></div>
         </div>
     </div>
 

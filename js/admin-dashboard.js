@@ -1,12 +1,13 @@
     const API_BASE = 'http://localhost:3000';
     const API = {
-      'localidades': API_BASE + '/api/localidades',
       'tipo-canchas': API_BASE + '/api/tipo-canchas',
       'canchas': API_BASE + '/api/canchas',
       'precios': API_BASE + '/api/precios',
       'servicios': API_BASE + '/api/servicios',
       'usuarios': API_BASE + '/api/usuarios',
       'reservas': API_BASE + '/api/reservas',
+      'turnos-fijos': API_BASE + '/api/turnos-fijos',
+      'resenas': API_BASE + '/api/reservas/resenas',
       'reserva-servicio': API_BASE + '/reserva-servicio',
       // Nuevos endpoints (los vamos a crear con filtros en el frontend)
       'canchas-por-tipo': API_BASE + '/api/canchas',
@@ -24,18 +25,20 @@
     }
 
     const idField = {
-      'localidades': 'id_localidad',
       'tipo-canchas': 'id_tipo',
       'canchas': 'id_cancha',
       'precios': 'id_precio',
       'servicios': 'id_servicio',
       'usuarios': 'id_usuario',
-      'reservas': 'id_reserva'
+      'reservas': 'id_reserva',
+      'turnos-fijos': 'id_turno_fijo',
+      'resenas': 'id_reserva'
     };
 
     const estadoOptions = ['disponible','ocupada','mantenimiento'];
 
-    let currentEntity = 'localidades';
+    let currentEntity = 'tipo-canchas';
+    let resenasResumen = { total: 0, promedio: 0 };
     let dataCache = {};
     let currentPage = 1, pageSize = 12;
 
@@ -96,6 +99,7 @@
       currentEntity = e.currentTarget.dataset.entity;
       currentPage = 1;
       mainTitle.textContent = titleFromEntity(currentEntity);
+      btnAddNew.style.display = currentEntity === 'resenas' ? 'none' : '';
       
       // manejar los nuevos items especiales
       if (currentEntity === 'canchas-por-tipo') {
@@ -123,13 +127,14 @@
 
     function titleFromEntity(entity){
       switch(entity){
-        case 'localidades': return 'Localidades';
         case 'tipo-canchas': return 'Tipos de Cancha';
         case 'canchas': return 'Canchas';
         case 'precios': return 'Precios';
         case 'servicios': return 'Servicios';
         case 'usuarios': return 'Usuarios';
         case 'reservas': return 'Reservas';
+        case 'turnos-fijos': return 'Turnos Fijos';
+        case 'resenas': return 'Reseñas';
         // NUEVOS TÍTULOS
         case 'canchas-por-tipo': return 'Canchas Filtradas por Tipo';
         case 'reservas-por-fecha': return 'Reservas Filtradas por Fecha';
@@ -142,7 +147,6 @@
       // precargar algunas lists (to populate selects)
       loadEntity(currentEntity);
       // prefetch other small lists so selects are ready
-      fetchIfNeeded('localidades');
       fetchIfNeeded('tipo-canchas');
       fetchIfNeeded('canchas');
     }
@@ -220,6 +224,21 @@
           dataCache[entity] = [];
         }
         
+        // el panel de reseñas devuelve total, promedio y la lista
+        if (entity === 'resenas') {
+          const d = dataCache[entity] || {};
+          resenasResumen = { total: d.total || 0, promedio: d.promedio || 0 };
+          dataCache[entity] = Array.isArray(d.resenas) ? d.resenas : [];
+        }
+
+        // precio tiene clave compuesta, armamos un id para la tabla
+        if (entity === 'precios') {
+          dataCache[entity] = dataCache[entity].map(p => {
+            const fecha = String(p.fecha_vigencia || '').slice(0, 10);
+            return { ...p, fecha_vigencia: fecha, id_precio: `${p.id_cancha}/${fecha}` };
+          });
+        }
+
         console.log(`📊 ${entity} cargados:`, dataCache[entity].length, 'registros');
         renderTable();
       } catch(err){
@@ -234,9 +253,12 @@
   
     async function deleteEntity(entity, id){
       const idKey = idField[entity];
-      if(!confirm('Seguro querés eliminar este registro?')) return;
+      const msg = entity === 'resenas' ? '¿Eliminar esta reseña? (la reserva se conserva)' : 'Seguro querés eliminar este registro?';
+      if(!confirm(msg)) return;
       try{
-        const path = (entity === 'reserva-servicio') ? API['reserva-servicio'] : (API[entity] + '/' + id);
+        const path = (entity === 'reserva-servicio') ? API['reserva-servicio']
+          : (entity === 'resenas') ? (API['reservas'] + '/' + id + '/resena')
+          : (API[entity] + '/' + id);
         const options = { method: 'DELETE', headers: getAuthHeaders() };
         // reserva-servicio deletion needs body {id_reserva, id_servicio}
         if(entity === 'reserva-servicio' && typeof id === 'object'){
@@ -508,7 +530,7 @@
 
       let html = `
         <div class="table-controls">
-          <div><span class="badge">${titleFromEntity(currentEntity)}</span> &nbsp; <small>${total} registros</small></div>
+          <div><span class="badge">${titleFromEntity(currentEntity)}</span> &nbsp; <small>${total} registros</small>${currentEntity === 'resenas' ? ` &nbsp; <small>Promedio general: <strong>${resenasResumen.promedio} / 5</strong> ${estrellas(Math.round(resenasResumen.promedio))}</small>` : ''}</div>
           <div></div>
         </div>
         <table class="table">
@@ -525,20 +547,22 @@
 
     function renderTableHead(entity){
       switch(entity){
-        case 'localidades':
-          return `<thead><tr><th>#</th><th>Nombre</th><th>Acción</th></tr></thead>`;
         case 'tipo-canchas':
           return `<thead><tr><th>#</th><th>Nombre</th><th>Deporte</th><th>Acción</th></tr></thead>`;
         case 'canchas':
-          return `<thead><tr><th>#</th><th>Nombre</th><th>Localidad</th><th>Tipo</th><th>Estado</th><th>Acción</th></tr></thead>`;
+          return `<thead><tr><th>#</th><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Acción</th></tr></thead>`;
         case 'precios':
-          return `<thead><tr><th>#</th><th>Cancha</th><th>Valor / hora</th><th>Fecha vigencia</th><th>Acción</th></tr></thead>`;
+          return `<thead><tr><th>Cancha</th><th>Valor / hora</th><th>Fecha vigencia</th><th>Acción</th></tr></thead>`;
         case 'servicios':
           return `<thead><tr><th>#</th><th>Nombre</th><th>Precio</th><th>Acción</th></tr></thead>`;
         case 'usuarios':
-          return `<thead><tr><th>#</th><th>Nombre</th><th>DNI</th><th>Localidad</th><th>Rol</th><th>Usuario</th><th>Acción</th></tr></thead>`;
+          return `<thead><tr><th>#</th><th>Nombre</th><th>DNI</th><th>Rol</th><th>Usuario</th><th>Mail</th><th>Acción</th></tr></thead>`;
         case 'reservas':
-          return `<thead><tr><th>#</th><th>Usuario</th><th>Cancha</th><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Total</th><th>Servicios</th><th>Acción</th></tr></thead>`;
+          return `<thead><tr><th>#</th><th>Usuario</th><th>Cancha</th><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Total</th><th>Servicios</th><th>Turno fijo</th><th>Puntaje</th><th>Acción</th></tr></thead>`;
+        case 'turnos-fijos':
+          return `<thead><tr><th>#</th><th>Desde</th><th>Hasta</th><th>Reservas</th><th>Acción</th></tr></thead>`;
+        case 'resenas':
+          return `<thead><tr><th>Reserva</th><th>Cliente</th><th>Cancha</th><th>Fecha</th><th>Puntaje</th><th>Reseña</th><th>Acción</th></tr></thead>`;
         default:
           return `<thead><tr><th>#</th><th>Datos</th><th>Acción</th></tr></thead>`;
       }
@@ -546,16 +570,6 @@
 
     function renderRow(entity, item){
       const id = item[idField[entity]] ?? item.id ?? '';
-      if(entity==='localidades'){
-        return `<tr>
-          <td>${escapeHtml(id)}</td>
-          <td>${escapeHtml(item.nombre)}</td>
-          <td class="actions">
-            <button title="Editar" onclick="openModal('edit', '${id}')"><i class="fa fa-pen"></i></button>
-            <button title="Eliminar" onclick="deleteEntity('localidades','${id}')"><i class="fa fa-trash" style="color:var(--danger)"></i></button>
-          </td>
-        </tr>`;
-      }
       if(entity==='tipo-canchas'){
         return `<tr>
           <td>${escapeHtml(id)}</td>
@@ -569,13 +583,8 @@
       }
       if(entity==='canchas'){
         // Buscar nombres en los caches
-        let locNombre = item.localidad_nombre || item.nombre_localidad || '';
         let tipoNombre = item.tipo_nombre || item.nombre_tipo || '';
         
-        if (!locNombre && dataCache['localidades']) {
-          const localidad = dataCache['localidades'].find(l => l.id_localidad == item.id_localidad);
-          locNombre = localidad ? localidad.nombre : `ID: ${item.id_localidad}`;
-        }
         
         if (!tipoNombre && dataCache['tipo-canchas']) {
           const tipo = dataCache['tipo-canchas'].find(t => t.id_tipo == item.id_tipo);
@@ -585,7 +594,6 @@
         return `<tr>
           <td>${escapeHtml(id)}</td>
           <td>${escapeHtml(item.nombre)}</td>
-          <td>${escapeHtml(locNombre)}</td>
           <td>${escapeHtml(tipoNombre)}</td>
           <td>${escapeHtml(item.estado || '')}</td>
           <td class="actions">
@@ -603,7 +611,7 @@
           canchaNombre = cancha ? cancha.nombre : `ID: ${item.id_cancha}`;
         }
         
-        const precio = item.valor_por_hora ?? item.valor ?? 0;
+        const precio = item.precio_por_hora ?? 0;
         const precioFormateado = new Intl.NumberFormat('es-AR', {
           style: 'currency',
           currency: 'ARS'
@@ -614,7 +622,6 @@
           'No definida';
         
         return `<tr>
-          <td>${escapeHtml(id)}</td>
           <td>${escapeHtml(canchaNombre)}</td>
           <td>${precioFormateado}</td>
           <td>${escapeHtml(fechaVigencia)}</td>
@@ -638,14 +645,13 @@
         </tr>`;
       }
       if(entity==='usuarios'){
-        const localidadNombre = item.localidad_nombre || item.nombre_localidad || item.id_localidad || '';
         return `<tr>
           <td>${escapeHtml(id)}</td>
           <td>${escapeHtml(item.nombre)} ${escapeHtml(item.apellido || '')}</td>
           <td>${escapeHtml(item.dni || '')}</td>
-          <td>${escapeHtml(localidadNombre)}</td>
           <td>${escapeHtml(item.rol || '')}</td>
-          <td>${escapeHtml(item.username || item.email || '')}</td>
+          <td>${escapeHtml(item.username || '')}</td>
+          <td>${escapeHtml(item.mail || '')}</td>
           <td class="actions">
             <button title="Editar" onclick="openModal('edit','${id}')"><i class="fa fa-pen"></i></button>
             <button title="Eliminar" onclick="deleteEntity('usuarios','${id}')"><i class="fa fa-trash" style="color:var(--danger)"></i></button>
@@ -676,9 +682,36 @@
           <td>${escapeHtml(item.hora_fin || '')}</td>
           <td>$ ${escapeHtml(item.precio_total ?? 0)}</td>
           <td>${escapeHtml(servicios)}</td>
+          <td>${item.turno_fijo ? escapeHtml(`#${item.turno_fijo.id_turno_fijo} (${String(item.turno_fijo.fecha_desde).slice(0,10)} → ${String(item.turno_fijo.fecha_hasta).slice(0,10)})`) : '-'}</td>
+          <td>${item.puntaje ? `${estrellas(item.puntaje)} <small>${item.puntaje}/5</small>` : '-'}</td>
           <td class="actions">
             <button title="Editar" onclick="openModal('edit','${id}')"><i class="fa fa-pen"></i></button>
             <button title="Eliminar" onclick="deleteEntity('reservas','${id}')"><i class="fa fa-trash" style="color:var(--danger)"></i></button>
+          </td>
+        </tr>`;
+      }
+      if(entity==='turnos-fijos'){
+        return `<tr>
+          <td>${escapeHtml(id)}</td>
+          <td>${escapeHtml(String(item.fecha_desde).slice(0,10))}</td>
+          <td>${escapeHtml(String(item.fecha_hasta).slice(0,10))}</td>
+          <td>${escapeHtml(item.total_reservas ?? 0)}</td>
+          <td class="actions">
+            <button title="Editar" onclick="openModal('edit','${id}')"><i class="fa fa-pen"></i></button>
+            <button title="Eliminar" onclick="deleteEntity('turnos-fijos','${id}')"><i class="fa fa-trash" style="color:var(--danger)"></i></button>
+          </td>
+        </tr>`;
+      }
+      if(entity==='resenas'){
+        return `<tr>
+          <td>#${escapeHtml(id)}</td>
+          <td>${escapeHtml(item.usuario_nombre)}</td>
+          <td>${escapeHtml(item.cancha_nombre)}</td>
+          <td>${escapeHtml(String(item.fecha).slice(0,10))}</td>
+          <td>${estrellas(item.puntaje)} <small>${escapeHtml(item.puntaje)}/5</small></td>
+          <td style="max-width:320px;white-space:normal">${escapeHtml(item.resena || '(sin comentario)')}</td>
+          <td class="actions">
+            <button title="Eliminar reseña" onclick="deleteEntity('resenas','${id}')"><i class="fa fa-trash" style="color:var(--danger)"></i></button>
           </td>
         </tr>`;
       }
@@ -831,10 +864,9 @@
 
     async function loadRequiredDataForModal() {
       const dependencies = {
-        'canchas': ['localidades', 'tipo-canchas'],
+        'canchas': ['tipo-canchas'],
         'precios': ['canchas'],
-        'usuarios': ['localidades'],
-        'reservas': ['usuarios', 'canchas', 'servicios']
+        'reservas': ['usuarios', 'canchas', 'servicios', 'turnos-fijos']
       };
       
       const entitiesToLoad = dependencies[currentEntity] || [];
@@ -865,12 +897,6 @@
       const currentValue = (field) => escapeHtml(currentItem ? currentItem[field] || '' : '');
       
       switch(entity){
-        case 'localidades':
-          return `
-            <label>Nombre *</label>
-            <input id="field_nombre" value="${currentValue('nombre')}" required />
-          `;
-
         case 'tipo-canchas':
           return `
             <label>Nombre *</label>
@@ -880,16 +906,10 @@
           `;
 
         case 'canchas':
-          const locs = (dataCache['localidades'] || []);
           const tipos = (dataCache['tipo-canchas'] || []);
           return `
             <label>Nombre *</label>
             <input id="field_nombre" value="${currentValue('nombre')}" required />
-            <label>Localidad *</label>
-            <select id="field_id_localidad" required>
-              <option value="">-- elegí localidad --</option>
-              ${locs.map(l => `<option value="${l.id_localidad || l.id}">${escapeHtml(l.nombre)}</option>`).join('')}
-            </select>
             <label>Tipo de Cancha *</label>
             <select id="field_id_tipo" required>
               <option value="">-- elegí tipo --</option>
@@ -905,14 +925,14 @@
           const canchas = (dataCache['canchas'] || []);
           return `
             <label>Cancha *</label>
-            <select id="field_id_cancha" required>
+            <select id="field_id_cancha" required ${modalMode==='edit' ? 'disabled' : ''}>
               <option value="">-- elegí cancha --</option>
               ${canchas.map(c => `<option value="${c.id_cancha || c.id}">${escapeHtml(c.nombre)}</option>`).join('')}
             </select>
             <label>Valor por hora *</label>
-            <input id="field_valor_por_hora" type="number" step="0.01" min="0" value="${currentValue('valor_por_hora')}" required />
-            <label>Fecha vigencia</label>
-            <input id="field_fecha_vigencia" type="date" value="${currentValue('fecha_vigencia')}" />
+            <input id="field_precio_por_hora" type="number" step="0.01" min="0" value="${currentValue('precio_por_hora')}" required />
+            <label>Fecha vigencia *</label>
+            <input id="field_fecha_vigencia" type="date" value="${currentValue('fecha_vigencia')}" required ${modalMode==='edit' ? 'disabled' : ''} />
           `;
 
         case 'servicios':
@@ -926,7 +946,6 @@
           `;
 
         case 'usuarios':
-          const locs2 = (dataCache['localidades'] || []);
           return `
             <label>Nombre *</label>
             <input id="field_nombre" value="${currentValue('nombre')}" required />
@@ -934,11 +953,6 @@
             <input id="field_apellido" value="${currentValue('apellido')}" required />
             <label>DNI *</label>
             <input id="field_dni" value="${currentValue('dni')}" required />
-            <label>Localidad</label>
-            <select id="field_id_localidad">
-              <option value="">-- elegí localidad --</option>
-              ${locs2.map(l => `<option value="${l.id_localidad || l.id}">${escapeHtml(l.nombre)}</option>`).join('')}
-            </select>
             <label>Rol</label>
             <select id="field_rol">
               <option value="cliente">cliente</option>
@@ -946,13 +960,24 @@
             </select>
             <label>Username *</label>
             <input id="field_username" value="${currentValue('username')}" required />
-            <label>Email</label>
-            <input id="field_email" type="email" value="${currentValue('email')}" />
+            <label>Mail *</label>
+            <input id="field_mail" type="email" value="${currentValue('mail')}" required />
+            <label>Teléfono</label>
+            <input id="field_telefono" type="number" value="${currentValue('telefono')}" />
             <label>Password ${modalMode==='edit'? '(dejar vacío si no cambia)' : '*'}</label>
             <input id="field_password" type="password" ${modalMode==='create' ? 'required' : ''} />
           `;
 
+        case 'turnos-fijos':
+          return `
+            <label>Fecha desde *</label>
+            <input id="field_fecha_desde" type="date" value="${escapeHtml(currentItem ? String(currentItem.fecha_desde).slice(0,10) : '')}" required />
+            <label>Fecha hasta *</label>
+            <input id="field_fecha_hasta" type="date" value="${escapeHtml(currentItem ? String(currentItem.fecha_hasta).slice(0,10) : '')}" required />
+          `;
+
         case 'reservas':
+          const turnosFijos = (dataCache['turnos-fijos'] || []);
           const users = (dataCache['usuarios'] || []);
           const allCanchas = (dataCache['canchas'] || []);
           const servicios = (dataCache['servicios'] || []);
@@ -973,6 +998,11 @@
             <input id="field_hora_inicio" type="time" value="${currentValue('hora_inicio')}" required />
             <label>Hora fin *</label>
             <input id="field_hora_fin" type="time" value="${currentValue('hora_fin')}" required />
+            <label>Turno fijo</label>
+            <select id="field_id_turno_fijo">
+              <option value="">-- ninguno --</option>
+              ${turnosFijos.map(t => `<option value="${t.id_turno_fijo}">#${t.id_turno_fijo} · ${escapeHtml(String(t.fecha_desde).slice(0,10))} → ${escapeHtml(String(t.fecha_hasta).slice(0,10))}</option>`).join('')}
+            </select>
             <label>Servicios</label>
             <select id="field_id_servicios" multiple style="height: 120px;">
               ${servicios.map(s => {
@@ -990,28 +1020,26 @@
     function setFormValues(entity, currentItem) {
       setTimeout(() => {
         if(entity === 'canchas'){
-          const selL = document.getElementById('field_id_localidad');
           const selT = document.getElementById('field_id_tipo');
           const selEstado = document.getElementById('field_estado');
-          if(selL) selL.value = currentItem.id_localidad || '';
           if(selT) selT.value = currentItem.id_tipo || '';
           if(selEstado) selEstado.value = currentItem.estado || 'disponible';
         }
         if(entity === 'precios'){
           const selCancha = document.getElementById('field_id_cancha');
-          const inputValor = document.getElementById('field_valor_por_hora');
+          const inputValor = document.getElementById('field_precio_por_hora');
           const inputFecha = document.getElementById('field_fecha_vigencia');
           if(selCancha) selCancha.value = currentItem.id_cancha || '';
-          if(inputValor) inputValor.value = currentItem.valor_por_hora || currentItem.valor || '';
+          if(inputValor) inputValor.value = currentItem.precio_por_hora || '';
           if(inputFecha) inputFecha.value = currentItem.fecha_vigencia || '';
         }
         if(entity === 'usuarios'){
-          if(document.getElementById('field_id_localidad')) 
-            document.getElementById('field_id_localidad').value = currentItem.id_localidad || '';
           if(document.getElementById('field_rol')) 
             document.getElementById('field_rol').value = currentItem.rol || 'cliente';
         }
         if(entity === 'reservas'){
+          if(document.getElementById('field_id_turno_fijo'))
+            document.getElementById('field_id_turno_fijo').value = currentItem.id_turno_fijo || '';
           if(document.getElementById('field_id_usuario')) 
             document.getElementById('field_id_usuario').value = currentItem.id_usuario || '';
           if(document.getElementById('field_id_cancha')) 
@@ -1091,10 +1119,6 @@
     function buildPayloadFromModal(){
       try{
         switch(currentEntity){
-          case 'localidades':
-            const nombre = document.getElementById('field_nombre')?.value?.trim();
-            if(!nombre) return null;
-            return { nombre };
           case 'tipo-canchas':
             const tnombre = document.getElementById('field_nombre')?.value?.trim();
             const deporte = document.getElementById('field_deporte')?.value?.trim();
@@ -1102,17 +1126,25 @@
             return { nombre: tnombre, deporte };
           case 'canchas':
             const cn = document.getElementById('field_nombre')?.value?.trim();
-            const id_localidad = document.getElementById('field_id_localidad')?.value;
             const id_tipo = document.getElementById('field_id_tipo')?.value;
             const estado = document.getElementById('field_estado')?.value;
-            if(!cn || !id_localidad || !id_tipo) return null;
-            return { nombre: cn, id_localidad: parseInt(id_localidad), id_tipo: parseInt(id_tipo), estado };
+            if(!cn || !id_tipo) return null;
+            return { nombre: cn, id_tipo: parseInt(id_tipo), estado };
           case 'precios':
             const id_cancha = document.getElementById('field_id_cancha')?.value;
-            const valor_por_hora = Number(document.getElementById('field_valor_por_hora')?.value || 0);
+            const precio_por_hora = Number(document.getElementById('field_precio_por_hora')?.value || 0);
             const fecha_vigencia = document.getElementById('field_fecha_vigencia')?.value;
-            if(!id_cancha || !valor_por_hora) return null;
-            return { id_cancha: parseInt(id_cancha), valor_por_hora: parseFloat(valor_por_hora), fecha_vigencia };
+            if(!precio_por_hora) return null;
+            // al editar, cancha y fecha van en la url
+            if(modalMode === 'edit') return { precio_por_hora };
+            if(!id_cancha || !fecha_vigencia) return null;
+            return { id_cancha: parseInt(id_cancha), precio_por_hora, fecha_vigencia };
+          case 'turnos-fijos':
+            const t_desde = document.getElementById('field_fecha_desde')?.value;
+            const t_hasta = document.getElementById('field_fecha_hasta')?.value;
+            if(!t_desde || !t_hasta) return null;
+            if(t_hasta < t_desde){ showToast('La fecha hasta no puede ser anterior a la fecha desde'); return null; }
+            return { fecha_desde: t_desde, fecha_hasta: t_hasta };
           case 'servicios':
             // CORREGIDO: usar precio_servicio
             const sname = document.getElementById('field_nombre')?.value?.trim();
@@ -1123,13 +1155,14 @@
             const unombre = document.getElementById('field_nombre')?.value?.trim();
             const uapellido = document.getElementById('field_apellido')?.value?.trim();
             const udni = document.getElementById('field_dni')?.value?.trim();
-            const uid_localidad = document.getElementById('field_id_localidad')?.value;
             const urol = document.getElementById('field_rol')?.value;
             const username = document.getElementById('field_username')?.value?.trim();
-            const email = document.getElementById('field_email')?.value?.trim();
+            const mail = document.getElementById('field_mail')?.value?.trim();
+            const telefono = document.getElementById('field_telefono')?.value;
             const password = document.getElementById('field_password')?.value;
-            if(!unombre || !uapellido || !udni || !username) return null;
-            const usuarioPayload = { nombre: unombre, apellido: uapellido, dni: udni, id_localidad: uid_localidad, rol: urol, username, email };
+            if(!unombre || !uapellido || !udni || !username || !mail) return null;
+            const usuarioPayload = { nombre: unombre, apellido: uapellido, dni: parseInt(udni, 10), rol: urol, username, mail };
+            if(telefono) usuarioPayload.telefono = Number(telefono);
             if(password) usuarioPayload.password = password;
             return usuarioPayload;
           case 'reservas':
@@ -1154,6 +1187,9 @@
               precio_total: r_precio_total 
             };
             
+            const r_turno = document.getElementById('field_id_turno_fijo')?.value;
+            reservaPayload.id_turno_fijo = r_turno ? parseInt(r_turno) : null;
+
             // Solo agregar servicios si hay alguno seleccionado
             if(id_servicios.length > 0) {
               reservaPayload.id_servicios = id_servicios;
@@ -1185,6 +1221,10 @@
       toast.textContent = msg;
       toast.classList.remove('hidden');
       setTimeout(()=> toast.classList.add('hidden'), time);
+    }
+    function estrellas(n){
+      const v = Math.max(0, Math.min(5, Number(n) || 0));
+      return `<span style="color:#f5a623;letter-spacing:1px">${'★'.repeat(v)}<span style="color:#ccc">${'★'.repeat(5 - v)}</span></span>`;
     }
     function escapeHtml(str){
       if(str === undefined || str === null) return '';

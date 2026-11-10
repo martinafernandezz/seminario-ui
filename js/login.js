@@ -59,7 +59,7 @@ createApp({
             username: user.username,
             nombre: user.nombre,
             apellido: user.apellido,
-            email: user.email,
+            mail: user.mail,
             dni: user.dni,
             rol: user.rol
           };
